@@ -32,7 +32,23 @@ def embed_esm1b(embed_dataloader, out_file):
     except:
         os.system(f"rm {out_file}")
         raise Exception("Failed to create embeddings")
-    
+
+def embed_esm1b(embed_dataloader, out_file):
+    model, _ = pretrained.load_model_and_alphabet("esm1b_t33_650M_UR50S")
+    model.eval().to(device)
+    embed_h5 = h5py.File(out_file, "w")
+    try:
+        with torch.autocast(device_type=device,dtype=dtype):
+            with torch.no_grad():
+                for i, (toks, lengths, np_mask, labels) in tqdm.tqdm(enumerate(embed_dataloader)):
+                    embed = model(toks.to(device), repr_layers=[33])["representations"][33].float().cpu().numpy()
+                    for j in range(len(labels)):
+                        # removing start and end tokens
+                        embed_h5[labels[j]] = embed[j, 1:1+lengths[j]].astype(np.float16)
+        embed_h5.close()
+    except:
+        os.system(f"rm {out_file}")
+        raise Exception("Failed to create embeddings")    
 
 def embed_prott5(embed_dataloader, out_file):
     model = T5EncoderModel.from_pretrained("Rostlab/prot_t5_xl_uniref50")
